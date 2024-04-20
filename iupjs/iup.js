@@ -1,4 +1,4 @@
-import { FFIType, dlopen, suffix } from "bun:ffi";
+import { FFIType, dlopen, suffix, } from "bun:ffi";
 import { button } from "./button";
 import { backgroundbox } from "./containers/backgroundbox";
 import { cbox } from "./containers/cbox";
@@ -18,6 +18,10 @@ import { split } from "./containers/split";
 import { tabs } from "./containers/tabs";
 import { vbox } from "./containers/vbox";
 import { zbox } from "./containers/zbox";
+import { cells } from "./controls/cells";
+import { matrix } from "./controls/matrix";
+import { matrixex } from "./controls/matrixex";
+import { matrixlist } from "./controls/matrixlist";
 import { datepick } from "./datepick";
 import { dialog } from "./dialog";
 import { gauge } from "./gauge";
@@ -29,25 +33,39 @@ import { text } from "./text";
 import { toggle } from "./toggle";
 import { tree } from "./tree";
 import { val } from "./val";
+import { ole } from "./controls/ole";
+import { webbrowser } from "./controls/webbrowser";
+
 const { ptr, cstring, i32 } = FFIType;
 
-const path = `libs/iup.${suffix}`;
+let path = `libs/iup.${suffix}`;
 export const {
     symbols: {
         IupOpen,
         IupMessage,
         IupSetGlobal,
         IupMainLoop,
+        IupDialog,
         IupShow,
+        IupButton,
+        IupText,
+        IupLabel,
+        IupList,
+        IupDatePick,
+        IupGauge,
+        IupProgressBar,
+        IupSpin,
+        IupToggle,
+        IupTree,
+        IupVal,
+        IupFill,
+        IupSpace,
+        IupSetHandle,
+        IupGetHandle,
         IupSetCallback,
         IupSetStrAttribute,
         IupSetAttribute,
         IupGetAttribute,
-        IupSetHandle,
-        IupGetHandle,
-        IupDialog,
-        IupButton,
-        IupText,
         IupHbox,
         IupVbox,
         IupCbox,
@@ -65,17 +83,8 @@ export const {
         IupSbox,
         IupSplit,
         IupAppend,
-        IupLabel,
-        IupList,
-        IupDatePick,
-        IupGauge,
-        IupProgressBar,
-        IupSpin,
-        IupToggle,
-        IupTree,
-        IupVal,
-        IupFill,
-        IupSpace
+
+        IupMap
     },
 } = dlopen(path, {
     IupOpen: {
@@ -242,8 +251,83 @@ export const {
     IupAppend: {
         args: [ptr, ptr],
         returns: ptr
+    },
+
+    IupMap: {
+        args: [ptr],
+        returns: i32
     }
 });
+
+const pathIupControls = `libs/iupcontrols.${suffix}`;
+
+export const {
+    symbols: {
+        IupControlsOpen,
+        IupCells,
+        IupMatrix,
+        IupMatrixEx,
+        IupMatrixList
+    },
+} = dlopen(pathIupControls, {
+    IupControlsOpen: {
+        args: [],
+        returns: i32
+    },
+    IupCells: {
+        args: [],
+        returns: ptr
+    },
+    IupMatrix: {
+        args: [cstring],
+        returns: ptr
+    },
+    IupMatrixEx: {
+        args: [cstring],
+        returns: ptr
+    },
+    IupMatrixList: {
+        args: [],
+        returns: ptr
+    }
+});
+
+const pathIupWeb = `libs/iupweb.${suffix}`;
+
+export const {
+    symbols: {
+        IupWebBrowser,
+        IupWebBrowserOpen
+    },
+} = dlopen(pathIupWeb, {
+    IupWebBrowser: {
+        args: [],
+        returns: ptr
+    },
+    IupWebBrowserOpen: {
+        args: [],
+        returns: i32
+    }
+});
+
+const pathIupOle = `libs/iupole.${suffix}`;
+
+export const {
+    symbols: {
+        IupOleControl,
+        IupOleControlOpen
+    },
+} = dlopen(pathIupOle, {
+    IupOleControl: {
+        args: [cstring],
+        returns: ptr
+    },
+    IupOleControlOpen : {
+        args: [],
+        returns: i32
+    }
+});
+
 
 export function str(template, ...values) {
     return Buffer.from(`${template.map((component, index) => values[index] ? component + values[index] : component).join('')}\0`);
@@ -251,6 +335,10 @@ export function str(template, ...values) {
 
 export class iup {
     constructor() { }
+
+    static aditionalControlsEnabled = false;
+    static webBrowserEnabled = false;
+    static oleControlOpenEnabled = false;
 
     static open() {
         IupOpen();
@@ -260,12 +348,32 @@ export class iup {
     static mainLoop() {
         IupMainLoop();
     };
+
+    static map(child) {
+        IupMap(child.handle);
+    };
+
+    static controlsOpen() {
+        if (!this.aditionalControlsEnabled) IupControlsOpen();
+        this.aditionalControlsEnabled = true;
+    }
+
+    static webBrowserOpen() {
+        if (!this.webBrowserEnabled) IupWebBrowserOpen();
+        this.webBrowserEnabled = true;
+    }
+
+    static oleControlOpen() {
+        if (!this.oleControlOpenEnabled) IupOleControlOpen();
+        this.oleControlOpenEnabled = true;
+    }
 }
 
 export {
     backgroundbox,
     button,
     cbox,
+    cells,
     datepick,
     detachbox,
     dialog,
@@ -277,7 +385,8 @@ export {
     hbox,
     label,
     list,
-    multibox,
+    matrix, matrixex,
+    matrixlist, multibox,
     normalizer,
     progressbar,
     radio,
@@ -292,6 +401,8 @@ export {
     tree,
     val,
     vbox,
-    zbox
+    zbox,
+    webbrowser,
+    ole
 };
 
