@@ -1,4 +1,4 @@
-import { FFIType, dlopen, suffix, } from "bun:ffi";
+import { FFIType, dlopen, JSCallback } from "bun:ffi";
 import { button } from "./button";
 import { backgroundbox } from "./containers/backgroundbox";
 import { cbox } from "./containers/cbox";
@@ -32,21 +32,52 @@ import { spin } from "./spin";
 import { text } from "./text";
 import { toggle } from "./toggle";
 import { tree } from "./tree";
+import { thread } from "./utils/thread";
 import { val } from "./val";
-import { ole } from "./controls/ole";
-import { webbrowser } from "./controls/webbrowser";
+import { timer } from "./utils/timer";
+import { menu } from "./menus/menu";
+import { item } from "./menus/item";
+import { submenu } from "./menus/submenu";
+import { separator } from "./menus/separator";
+import { filedlg } from "./dialogs/filedlg";
+import { colordlg } from "./dialogs/colordlg";
+import { messagedlg } from "./dialogs/messagedlg";
+import { fontdlg } from "./dialogs/fontdlg";
+import { progressdlg } from "./dialogs/progressdlg";
+import { scintilladlg } from "./dialogs/scintilladlg";
+
+import { iup_lib, iupfiledlg_lib, iupcontrols_lib, iupim_lib, iup_scintilla_lib, iupimglib_lib } from "./utils/import_libs";
+import { iup_definitions } from "./iup_lib/definitions";
 
 const { ptr, cstring, i32 } = FFIType;
 
-let path = `libs/iup.${suffix}`;
+let path = iup_lib;
+
 export const {
     symbols: {
         IupOpen,
         IupMessage,
+        IupMessageError,
         IupSetGlobal,
         IupMainLoop,
         IupDialog,
         IupShow,
+        IupShowXY,
+        IupSetHandle,
+        IupGetHandle,
+        IupSetCallback,
+        IupSetStrAttribute,
+        IupSetAttribute,
+        IupGetAttribute,
+        IupAppend,
+        IupMap,
+        IupLoadBuffer,
+        IupThread,
+        IupTimer,
+        IupLoopStep,
+        IupSetFunction,
+        IupPopup,
+
         IupButton,
         IupText,
         IupLabel,
@@ -60,12 +91,6 @@ export const {
         IupVal,
         IupFill,
         IupSpace,
-        IupSetHandle,
-        IupGetHandle,
-        IupSetCallback,
-        IupSetStrAttribute,
-        IupSetAttribute,
-        IupGetAttribute,
         IupHbox,
         IupVbox,
         IupCbox,
@@ -82,184 +107,20 @@ export const {
         IupExpander,
         IupSbox,
         IupSplit,
-        IupAppend,
+        IupMenu,
+        IupItem,
+        IupSubmenu,
+        IupSeparator,
 
-        IupMap
-    },
-} = dlopen(path, {
-    IupOpen: {
-        args: [],
-        returns: i32,
-    },
-    IupMessage: {
-        args: [cstring, cstring],
-        returns: i32,
-    },
-    IupSetGlobal: {
-        args: [cstring, cstring],
-        returns: i32,
-    },
-    IupMainLoop: {
-        args: [],
-    },
-    IupDialog: {
-        args: [ptr],
-        returns: ptr,
-    },
-    IupShow: {
-        args: [ptr],
-        returns: i32,
-    },
-    IupButton: {
-        args: [cstring, cstring],
-        returns: ptr,
-    },
-    IupText: {
-        args: [cstring],
-        returns: ptr,
-    },
-    IupLabel: {
-        args: [cstring],
-        returns: ptr,
-    },
-    IupList: {
-        args: [cstring],
-        returns: ptr,
-    },
-    IupDatePick: {
-        args: [],
-        returns: ptr,
-    },
-    IupGauge: {
-        args: [],
-        returns: ptr,
-    },
-    IupProgressBar: {
-        args: [],
-        returns: ptr,
-    },
-    IupSpin: {
-        args: [],
-        returns: ptr,
-    },
-    IupToggle: {
-        args: [cstring, cstring],
-        returns: ptr,
-    },
-    IupTree: {
-        args: [],
-        returns: ptr,
-    },
-    IupVal: {
-        args: [cstring],
-        returns: ptr,
-    },
-    IupFill: {
-        args: [],
-        returns: ptr,
-    },
-    IupSpace: {
-        args: [],
-        returns: ptr,
-    },
-    IupSetHandle: {
-        args: [cstring, ptr],
-        returns: ptr,
-    },
-    IupGetHandle: {
-        args: [cstring],
-        returns: ptr,
-    },
-    IupSetCallback: {
-        args: [ptr, cstring, "callback"],
-        returns: ptr,
-    },
-    IupSetStrAttribute: {
-        args: [ptr, cstring, cstring]
-    },
-    IupSetAttribute: {
-        args: [ptr, cstring, cstring]
-    },
-    IupGetAttribute: {
-        args: [ptr, cstring],
-        returns: cstring,
-    },
-    IupHbox: {
-        args: [...Array(100).fill(ptr)],
-        returns: ptr,
-    },
-    IupVbox: {
-        args: [...Array(100).fill(ptr)],
-        returns: ptr,
-    },
-    IupCbox: {
-        args: [...Array(100).fill(ptr)],
-        returns: ptr,
-    },
-    IupGridBox: {
-        args: [...Array(100).fill(ptr)],
-        returns: ptr,
-    },
-    IupMultiBox: {
-        args: [...Array(100).fill(ptr)],
-        returns: ptr,
-    },
-    IupZbox: {
-        args: [...Array(100).fill(ptr)],
-        returns: ptr,
-    },
-    IupRadio: {
-        args: [...Array(100).fill(ptr)],
-        returns: ptr,
-    },
-    IupNormalizer: {
-        args: [...Array(100).fill(ptr)],
-        returns: ptr,
-    },
-    IupFrame: {
-        args: [ptr],
-        returns: ptr,
-    },
-    IupTabs: {
-        args: [...Array(100).fill(ptr)],
-        returns: ptr,
-    },
-    IupBackgroundBox: {
-        args: [...Array(100).fill(ptr)],
-        returns: ptr,
-    },
-    IupScrollBox: {
-        args: [...Array(100).fill(ptr)],
-        returns: ptr,
-    },
-    IupDetachBox: {
-        args: [ptr],
-        returns: ptr,
-    },
-    IupExpander: {
-        args: [ptr],
-        returns: ptr,
-    },
-    IupSbox: {
-        args: [ptr],
-        returns: ptr,
-    },
-    IupSplit: {
-        args: [ptr, ptr],
-        returns: ptr,
-    },
-    IupAppend: {
-        args: [ptr, ptr],
-        returns: ptr
-    },
-
-    IupMap: {
-        args: [ptr],
-        returns: i32
+        IupFileDlg,
+        IupMessageDlg,
+        IupColorDlg,
+        IupFontDlg,
+        IupProgressDlg,
     }
-});
+} = dlopen(path, iup_definitions);
 
-const pathIupControls = `libs/iupcontrols.${suffix}`;
+const pathIupControls = iupcontrols_lib;
 
 export const {
     symbols: {
@@ -267,67 +128,59 @@ export const {
         IupCells,
         IupMatrix,
         IupMatrixEx,
-        IupMatrixList
+        IupMatrixList,
     },
 } = dlopen(pathIupControls, {
-    IupControlsOpen: {
-        args: [],
-        returns: i32
-    },
-    IupCells: {
-        args: [],
-        returns: ptr
-    },
-    IupMatrix: {
-        args: [cstring],
-        returns: ptr
-    },
-    IupMatrixEx: {
-        args: [cstring],
-        returns: ptr
-    },
-    IupMatrixList: {
-        args: [],
-        returns: ptr
-    }
+    IupControlsOpen: { args: [], returns: i32 },
+    IupCells: { args: [], returns: ptr },
+    IupMatrix: { args: [cstring], returns: ptr },
+    IupMatrixEx: { args: [cstring], returns: ptr },
+    IupMatrixList: { args: [], returns: ptr },
 });
 
-const pathIupWeb = `libs/iupweb.${suffix}`;
+const pathIupScintilla = iup_scintilla_lib;
 
 export const {
     symbols: {
-        IupWebBrowser,
-        IupWebBrowserOpen
+        IupScintillaOpen,
+        IupScintilla,
+        IupScintillaDlg
     },
-} = dlopen(pathIupWeb, {
-    IupWebBrowser: {
-        args: [],
-        returns: ptr
-    },
-    IupWebBrowserOpen: {
-        args: [],
-        returns: i32
-    }
+} = dlopen(pathIupScintilla, {
+    IupScintillaOpen: { args: [], returns: i32 },
+    IupScintilla:  { args: [], returns: ptr }, 
+    IupScintillaDlg: { args: [], returns: ptr },
 });
 
-const pathIupOle = `libs/iupole.${suffix}`;
+const pathIupImgLib = iupimglib_lib;
 
 export const {
     symbols: {
-        IupOleControl,
-        IupOleControlOpen
+        IupImageLibOpen,
     },
-} = dlopen(pathIupOle, {
-    IupOleControl: {
-        args: [cstring],
-        returns: ptr
-    },
-    IupOleControlOpen : {
-        args: [],
-        returns: i32
-    }
+} = dlopen(pathIupImgLib, {
+    IupImageLibOpen: { args: [], returns: i32 },
 });
 
+const pathIupIm = iupim_lib;
+
+export const {
+    symbols: {
+        IupLoadImage
+    },
+} = dlopen(pathIupIm, {
+    IupLoadImage: { args: [cstring], returns: ptr }
+});
+
+const pathIupfiledlg = iupfiledlg_lib;
+
+export const {
+    symbols: {
+        IupNewFileDlgOpen
+    },
+} = dlopen(pathIupfiledlg, {
+    IupNewFileDlgOpen: { args: [], returns: ptr }
+});
 
 export function str(template, ...values) {
     return Buffer.from(`${template.map((component, index) => values[index] ? component + values[index] : component).join('')}\0`);
@@ -339,10 +192,14 @@ export class iup {
     static aditionalControlsEnabled = false;
     static webBrowserEnabled = false;
     static oleControlOpenEnabled = false;
+    static scintillaEnabled = false;
+    static imgLibEnabled = false;
 
     static open() {
         IupOpen();
         IupSetGlobal(str`UTF8MODE`, str`YES`);
+        IupSetGlobal(str`UTF8MODE_FILE`, str`YES`);
+        if (process.platform === 'win32') IupNewFileDlgOpen();
     }
 
     static mainLoop() {
@@ -353,23 +210,61 @@ export class iup {
         IupMap(child.handle);
     };
 
+    static message(title, message) {
+        IupMessage(str`${title}`, str`${message}`)
+    }
+
+    static messageError(parent, message) {
+        IupMessageError(parent, str`${message}`)
+    }
+
+    static loopStep() {
+        return IupLoopStep()
+    }
+
+    static async loadLedFromFile(path) {
+        return IupLoadBuffer(str`${await Bun.file(path).text()}`);
+    }
+
+    static setFunction(name, cb) {
+        IupSetFunction(str`${name}`, new JSCallback(cb, {}));
+    }
+
     static controlsOpen() {
         if (!this.aditionalControlsEnabled) IupControlsOpen();
         this.aditionalControlsEnabled = true;
     }
 
-    static webBrowserOpen() {
-        if (!this.webBrowserEnabled) IupWebBrowserOpen();
-        this.webBrowserEnabled = true;
+    static scintillaOpen() {
+        if (!this.scintillaEnabled) IupScintillaOpen();
+        this.scintillaEnabled = true;
     }
 
-    static oleControlOpen() {
-        if (!this.oleControlOpenEnabled) IupOleControlOpen();
-        this.oleControlOpenEnabled = true;
+    static imgLibOpen() {
+        if (!this.imgLibEnabled) IupImageLibOpen();
+        this.imgLibEnabled = true;
     }
 }
 
+const IUP_CENTER = 0xFFFF;  /* 65535 */
+const IUP_LEFT = 0xFFFE;  /* 65534 */
+const IUP_RIGHT = 0xFFFD;  /* 65533 */
+const IUP_MOUSEPOS = 0xFFFC;  /* 65532 */
+const IUP_CURRENT = 0xFFFB;  /* 65531 */
+const IUP_CENTERPARENT = 0xFFFA;  /* 65530 */
+const IUP_TOP = IUP_LEFT;
+const IUP_BOTTOM = IUP_RIGHT;
+
 export {
+    IUP_CENTER,
+    IUP_LEFT,
+    IUP_RIGHT,
+    IUP_MOUSEPOS,
+    IUP_CURRENT,
+    IUP_CENTERPARENT,
+    IUP_TOP,
+    IUP_BOTTOM,
+
     backgroundbox,
     button,
     cbox,
@@ -385,8 +280,10 @@ export {
     hbox,
     label,
     list,
-    matrix, matrixex,
-    matrixlist, multibox,
+    matrix,
+    matrixex,
+    matrixlist,
+    multibox,
     normalizer,
     progressbar,
     radio,
@@ -397,12 +294,21 @@ export {
     split,
     tabs,
     text,
+    thread,
     toggle,
     tree,
     val,
     vbox,
     zbox,
-    webbrowser,
-    ole
+    timer,
+    menu,
+    item,
+    submenu,
+    separator,
+    filedlg,
+    colordlg,
+    messagedlg,
+    fontdlg,
+    progressdlg,
+    scintilladlg
 };
-
