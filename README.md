@@ -7,6 +7,11 @@ iupjs uses the power of [Bun](https://bun.sh/) FFI to bring native GUI's using t
 - Very simple class system using JavaScript proxies to wrap around native library functions, uses simple attributes to define properties/events (check examples below)
 <hr>
 
+# Usage
+```
+bun install git+https://github.com/joao678/iup-js.git
+```
+
 # Example
 ```js
 import { button, dialog, fill, hbox, iup, vbox } from "../iupjs/iup";
