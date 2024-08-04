@@ -1,3 +1,88 @@
+/*
+    On Linux we run into a little bit of a problem while loading the IUP libraries.
+    In order for the program to look for the .so files, LD_LIBRARY_PATH needs to be set before starting the bun process and cannot be set dynamically.
+    We can fix this by making so that any JS file that imports IUPJS, starts another process using the same arguments but instead sets the correct LD_LIBRARY_PATH and waits for the child process to finish (and it only does this once).
+    On standalone executables things get a little more complicated, setting LD_LIBRARY_PATH to the temporary bun filesystem dosen't work because only bun can read that directoy, so instead we copy every .so file to /tmp and set LD_LIBRARY_PATH there and just start the program again.
+    At the end we delete all files from /tmp, but also keep track of programs using IUPJS in order to not delete anything while another program is running.
+    Not the best solution, but hey it works.
+    None of this is necessary on Windows.
+*/
+import { $, argv } from "bun";
+import { basename, resolve } from "path";
+import { unlinkSync, readFileSync, writeFileSync } from "fs";
+import {
+    iup_lib_win, iupfiledlg_lib_win, iupcontrols_lib_win, iupim_lib_win, iup_scintilla_lib_win, iupimglib_lib_win,
+    cd_lib_linux, cdcontextplus_lib_linux, cdgl_lib_linux, cdim_lib_linux, cdpdf_lib_linux, ftgl_lib_linux, im_lib_linux, im_fftw3_lib_linux, im_jp2_lib_linux, im_process_lib_linux, im_process_omp_lib_linux, iup_lib_linux, iupcd_lib_linux, iupcontrols_lib_linux, iupgl_lib_linux, iupglcontrols_lib_linux, iupim_lib_linux, iupimglib_lib_linux, iuptuio_lib_linux, iupweb_lib_linux, iup_mglplot_lib_linux, iup_plot_lib_linux, iup_scintilla_lib_linux, pdflib_lib_linux,
+} from "./utils/import_libs";
+
+const isStandaloneExecutableLinux = argv[1].split('/').includes('$bunfs');
+const libFiles = [
+    cd_lib_linux,
+    cdcontextplus_lib_linux,
+    cdgl_lib_linux,
+    cdim_lib_linux,
+    cdpdf_lib_linux,
+    ftgl_lib_linux,
+    im_lib_linux,
+    im_fftw3_lib_linux,
+    im_jp2_lib_linux,
+    im_process_lib_linux,
+    im_process_omp_lib_linux,
+    iup_lib_linux,
+    iupcd_lib_linux,
+    iupcontrols_lib_linux,
+    iupgl_lib_linux,
+    iupglcontrols_lib_linux,
+    iupim_lib_linux,
+    iupimglib_lib_linux,
+    iuptuio_lib_linux,
+    iupweb_lib_linux,
+    iup_mglplot_lib_linux,
+    iup_plot_lib_linux,
+    iup_scintilla_lib_linux,
+    pdflib_lib_linux
+];
+
+if (process.platform === 'linux' && !argv.includes('linux')) {
+    const args = isStandaloneExecutableLinux ? [resolve((await $`echo $0`.text()).trim()), ...argv.slice(1)] : argv;
+    const libraryPath = isStandaloneExecutableLinux ? '/tmp' : resolve(import.meta.dir + '/../libs/');
+    let iupjs_counter = 0;
+
+    if (isStandaloneExecutableLinux) {
+        if (!(await Bun.file(`/tmp/iupjs_counter`).exists())) {
+            await Bun.write(`/tmp/iupjs_counter`, 1);
+            iupjs_counter = 1;
+        } else {
+            iupjs_counter = parseInt(await Bun.file(`/tmp/iupjs_counter`).text()) + 1;
+            await Bun.write(`/tmp/iupjs_counter`, iupjs_counter);
+        }
+        if (!(await Bun.file(`/tmp/${basename(libFiles[0])}`).exists())) {
+            libFiles.forEach(async (filePath) => {
+                const file = Bun.file(filePath);
+                await Bun.write(`/tmp/${basename(filePath)}`, file);
+            });
+        }
+    }
+
+    const proc = Bun.spawn([...args, 'linux'], {
+        env: { ...process.env, LD_LIBRARY_PATH: libraryPath },
+        onExit() {
+            console.log('exit');
+            iupjs_counter = parseInt(readFileSync(`/tmp/iupjs_counter`).toString()) - 1;
+            writeFileSync(`/tmp/iupjs_counter`, `${iupjs_counter}`);
+            if (isStandaloneExecutableLinux && iupjs_counter < 1) {
+                libFiles.forEach(file => unlinkSync(`/tmp/${basename(file)}`));
+                unlinkSync(`/tmp/iupjs_counter`);
+            }
+            process.exit();
+        },
+        stdin: "inherit",
+        stdout: "inherit"
+    });
+    await proc.exited;
+    process.exit();
+}
+
 import { FFIType, dlopen, JSCallback } from "bun:ffi";
 import { button } from "./button";
 import { backgroundbox } from "./containers/backgroundbox";
@@ -46,15 +131,11 @@ import { fontdlg } from "./dialogs/fontdlg";
 import { progressdlg } from "./dialogs/progressdlg";
 import { scintilladlg } from "./dialogs/scintilladlg";
 
-import {
-    iup_lib_win, iupfiledlg_lib_win, iupcontrols_lib_win, iupim_lib_win, iup_scintilla_lib_win, iupimglib_lib_win,
-    iup_lib_linux, iupcontrols_lib_linux, iupim_lib_linux, iup_scintilla_lib_linux, iupimglib_lib_linux
-} from "./utils/import_libs";
-
 import { iup_definitions } from "./iup_lib/definitions";
+
 const { ptr, cstring, i32 } = FFIType;
 
-let path = process.platform === 'win32' ? iup_lib_win : iup_lib_linux;
+let path = process.platform === 'win32' ? iup_lib_win : isStandaloneExecutableLinux ? `/tmp/${basename(iup_lib_linux)}` : iup_lib_linux;
 
 export const {
     symbols: {
@@ -124,7 +205,7 @@ export const {
     }
 } = dlopen(path, iup_definitions);
 
-const pathIupControls = process.platform === 'win32' ? iupcontrols_lib_win : iupcontrols_lib_linux;
+const pathIupControls = process.platform === 'win32' ? iupcontrols_lib_win : isStandaloneExecutableLinux ? `/tmp/${basename(iupcontrols_lib_linux)}` : iupcontrols_lib_linux;
 
 export const {
     symbols: {
@@ -142,7 +223,7 @@ export const {
     IupMatrixList: { args: [], returns: ptr },
 });
 
-const pathIupScintilla = process.platform === 'win32' ? iup_scintilla_lib_win : iup_scintilla_lib_linux;
+const pathIupScintilla = process.platform === 'win32' ? iup_scintilla_lib_win : isStandaloneExecutableLinux ? `/tmp/${basename(iup_scintilla_lib_linux)}` : iup_scintilla_lib_linux;
 
 export const {
     symbols: {
@@ -156,7 +237,7 @@ export const {
     IupScintillaDlg: { args: [], returns: ptr },
 });
 
-const pathIupImgLib = process.platform === 'win32' ? iupimglib_lib_win : iupimglib_lib_linux;
+const pathIupImgLib = process.platform === 'win32' ? iupimglib_lib_win : isStandaloneExecutableLinux ? `/tmp/${basename(iupimglib_lib_linux)}` : iupimglib_lib_linux;
 
 export const {
     symbols: {
@@ -166,7 +247,7 @@ export const {
     IupImageLibOpen: { args: [], returns: i32 },
 });
 
-const pathIupIm = process.platform === 'win32' ? iupim_lib_win : iupim_lib_linux;
+const pathIupIm = process.platform === 'win32' ? iupim_lib_win : isStandaloneExecutableLinux ? `/tmp/${basename(iupim_lib_linux)}` : iupim_lib_linux;
 
 export const {
     symbols: {
